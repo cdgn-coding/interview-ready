@@ -10,26 +10,60 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { API } from "../api";
 
+const Button = ({ buttonText }) => {
+  return <button>{buttonText}</button>;
+};
 export function FunctionsAsComponents({ buttonText = "Start Now" }) {
-  const showButton = () => {
-    <button>{buttonText}</button>;
-  };
 
-  return <div>{showButton()}</div>;
+  return <div><Button buttonText={buttonText}/></div>;
 }
 
 export function deepCopyObject(obj) {
-  return { ...obj };
+  if (typeof obj === 'undefined' || obj === null) {
+    return obj;
+  }
+
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (obj instanceof Array) {
+    return obj.map(deepCopyObject);
+  }
+
+  if (obj instanceof Map) {
+    const cp = new Map();
+    for (const [key, value] of obj) {
+      cp.set(key, deepCopyObject(value));
+    }
+    return cp;
+  }
+
+  const cp = {}
+
+  for (const key in obj) {
+    cp[key] = deepCopyObject(obj[key]);
+  }
+
+  return cp;
 }
 
 export function deepCopyArray(array) {
-  return [...array];
+  return array.map(deepCopyObject);
 }
 
 export function UseEffectThrashing({ frequentlyChangedURL }) {
+  const [signal, setSignal] = useState(null)
   useEffect(() => {
+    if (signal) {
+      signal.abort()
+    }
+
+    const s = new AbortController()
+    setSignal(s)
+    
     const fetchData = async () => {
-      await fetch(fetchURL);
+      await fetch(frequentlyChangedURL, { signal: s });
     };
 
     fetchData();
@@ -39,38 +73,31 @@ export function UseEffectThrashing({ frequentlyChangedURL }) {
 }
 
 export function UseEffectDerivedCalculation() {
-  const [remainder, setReminder] = useState();
-  const [clickedTimes, setClickedTimes] = useState();
+  const [clickedTimes, setClickedTimes] = useState(0);
 
-  useEffect(() => {
-    setReminder(clickedTimes % 5);
-  }, [clickedTimes]);
-
-  const handleClick = () => setClickedTimes(clickedTimes + 1);
+  const handleClick = useCallback(() => setClickedTimes(clickedTimes + 1), [clickedTimes]);
 
   return (
     <div>
       <button onClick={handleClick}>Add Click Count</button>
-      <span>{clickedTimes}</span>
-      <span>{remainder}</span>
+      <span>Sum: {clickedTimes}</span>
+      <span>Remainder: {clickedTimes % 5}</span>
     </div>
   );
 }
 
 export function UseStateDerivedCalculation() {
-  const [remainder, setReminder] = useState();
-  const [clickedTimes, setClickedTimes] = useState();
-
+  const [clickedTimes, setClickedTimes] = useState(0);
+  const remainder = clickedTimes % 5;
   const handleClick = () => {
     setClickedTimes(clickedTimes + 1);
-    setReminder(clickedTimes % 5);
   };
 
   return (
     <div>
       <button onClick={handleClick}>Add Click Count</button>
-      <span>{clickedTimes}</span>
-      <span>{remainder}</span>
+      <span>Sum: {clickedTimes}</span>
+      <span>Remainder: {remainder}</span>
     </div>
   );
 }
@@ -79,34 +106,35 @@ export function DirtyUnmount() {
   const [time, setTime] = useState(0);
 
   useEffect(() => {
-    setInterval(() => {
+    const it = setInterval(() => {
       setTime((t) => t + 1);
     }, 1000);
+
+    return () => clearInterval(it)
   }, []);
 
   return <div>Clock in seconds: {time}</div>;
 }
 
 export function AvoidingUseState() {
-  const ref = useRef("Unmounted");
-
-  useEffect(() => {
-    ref.current = "Mounted";
-  }, []);
-
-  return <div>{ref.current}</div>;
+  return <div>{"Mounted"}</div>;
 }
 
 export function UnrenderableState() {
   const [result, setResult] = useState();
-  let loading = false;
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
-      loading = true;
-      const result = await API.unrenderableState();
-      loading = false;
-      setResult(result);
+      try {
+        setLoading(true)
+        const result = await API.unrenderableState();
+        setResult(result);
+      } catch(error) {
+        setErr(error)
+      }
+        setLoading(false)
     };
 
     fetchData();
@@ -114,17 +142,18 @@ export function UnrenderableState() {
 
   return (
     <div>
-      <span>Loading: {loading}</span>
-      Result:{result}
+      <span>Loading: {loading ? "Pending": "Done"}</span>
+      Result: {result}
     </div>
   );
 }
 
-export function CrudeDeclarations() {
-  const calendarDays = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-    22, 23, 24, 25, 26, 27, 28, 29, 30,
-  ];
+const defaultCalendarDays = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+  22, 23, 24, 25, 26, 27, 28, 29, 30,
+]
+
+export function CrudeDeclarations({ calendarDays = defaultCalendarDays }) {
   return (
     <ol>
       {calendarDays.map((val) => (
@@ -135,34 +164,67 @@ export function CrudeDeclarations() {
 }
 
 export function AvoidMagicNumbers(age) {
+  const isAdult = age >= 18;
   return (
-    <ol>{age >= 18 ? <div>Spicy</div> : <div>You are not old enough</div>}</ol>
+    <ol>{isAdult ? <div>Spicy</div> : <div>You are not old enough</div>}</ol>
   );
 }
 
 export function UnidiomaticHTMLStructure() {
   const [name, setName] = useState("");
-  const handleSubmit = (e) => {};
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    // do stuff
+  };
+
   const handleChange = (e) => setName(e.target.value);
 
   return (
     <div>
-      <input value={name} name="name" type="text" onChange={handleChange} />
-      <button type="submit" onClick={handleSubmit}>
-        Submit
-      </button>
+      <form onSubmit={handleSubmit}>
+          <input value={name} name="name" type="text" onChange={handleChange} id="name"/>
+          <label htmlFor="name"></label>
+        <button type="submit" onClick={handleSubmit}>
+          Submit
+        </button>
+      </form>
     </div>
   );
 }
 
 export function CrudeStateManagement() {
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [location, setLocation] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formState, setFormState] = useState({
+    name: "",
+    age: "",
+    location: "",
+    email: "",
+    password: "",
+  })
+
+  const {
+    name,
+    age,
+    location,
+    email,
+    password,
+  } = formState;
+
+  const setField = fieldName => e => {
+    const value = e.target.value;
+    setFormState( state => {
+      cp = { ...state };
+      cp[fieldName] = value;
+      return value;
+    })
+  }
 
   const handleSubmit = (e) => {};
+
+  const setName = setField('name')
+  const setAge = setField('age')
+  const setEmail = setField('email')
+  const setPassword = setField('password')
+  const setLocation = setField('location')
 
   return (
     <form onSubmit={handleSubmit}>
@@ -191,26 +253,39 @@ export function UnidiomaticHTMLHierarchy() {
   const asks = [1, 2, 3];
 
   return (
-    <li>
-      {bids.map((bid, i) => (
-        <li key={i}>{bid}</li>
-      ))}
-      {asks.map((ask, j) => (
-        <li key={j + "asks"}>{ask}</li>
-      ))}
-    </li>
+    <>
+      <ul>
+        {bids.map((bid, i) => (
+          <li key={i}>{bid}</li>
+        ))}
+      </ul>
+      <ul>
+        {asks.map((ask, j) => (
+          <li key={j + "asks"}>{ask}</li>
+        ))}
+      </ul>
+    </>
   );
 }
 
 export function SubstandardDataStructure() {
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState([]);
+
+  const addError = error => setErrors(errors => [...errors, error]);
+  const crearErrors = () => setErrors([])
 
   return (
     <div>
-      <button onClick={() => setError("Error A")}>Throw Error A</button>
-      <button onClick={() => setError("Error B")}>Throw Error B</button>
-      <button onClick={() => setError("")}>Clear Errors</button>
-      <div>{error}</div>
+      <button onClick={() => addError("Error A")}>Throw Error A</button>
+      <button onClick={() => addError("Error B")}>Throw Error B</button>
+      <button onClick={crearErrors}>Clear Errors</button>
+      <div>
+        <ul>
+          {errors.map((error, i) =>
+            <li key={`${i}-error`}>{error}</li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -220,19 +295,37 @@ export function DangerousIdentifier() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const person = new FormData(e.target);
-    setPeople((ppl) => [...ppl, ...person]);
+
+    // Get the input value directly from the form
+    const formData = new FormData(e.target);
+    const personName = formData.get("name").trim();
+
+    if (!personName) {
+      console.error("Name cannot be empty");
+      return;
+    }
+
+    const record = {
+      name: personName,
+      id: Math.random().toString(), // Avoid using Math.random for IDs in production
+    };
+
+    setPeople((ppl) => [...ppl, record]);
+
+    // Clear the input field
+    e.target.reset();
   };
 
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <input type="text" />
-        <button>Add Person</button>
+        <input type="text" name="name" id="name" />
+        <label htmlFor="name"></label>
+        <button type="submit">Add Person</button>
       </form>
       <ul>
         {people.map((person) => (
-          <span key={person.name}>{person.name}</span>
+          <li key={person.id}>{person.name}</li>
         ))}
       </ul>
     </div>

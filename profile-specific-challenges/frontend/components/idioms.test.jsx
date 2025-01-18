@@ -61,6 +61,8 @@ describe("FunctionsAsComponents", () => {
   test("Renders with default prop", () => {
     const serialized = FunctionsAsComponents.toString();
     render(<FunctionsAsComponents />);
+
+    screen.debug();
     expect(screen.getByText("Start Now")).toBeInTheDocument();
 
     expect(serialized).not.toMatch(/\{ children: .*\(\) \}/);
@@ -371,6 +373,8 @@ describe("DangerousIdentifier", () => {
 
     const addCta = screen.getByText("Add Person");
     const input = screen.getByRole("textbox");
+
+    expect(input).toBeInTheDocument();
 
     input.value = "Silver";
     fireEvent.click(addCta);
