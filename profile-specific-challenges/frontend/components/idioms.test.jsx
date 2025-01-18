@@ -152,7 +152,7 @@ describe("UseEffectDerivedCalculation", () => {
   test("uses only one useState and no useEffect", () => {
     render(<UseEffectDerivedCalculation />);
 
-    expect(React.useState).toHaveBeenCalledTimes(2); // called twice even with one useState
+    expect(React.useState).toHaveBeenCalledTimes(1); // called twice even with one useState
     expect(React.useEffect).not.toHaveBeenCalled();
   });
 
